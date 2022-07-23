@@ -1,0 +1,530 @@
+---
+title: "Bellabeat Case Study - Google Data Analytics"
+author: "Samuel Minor"
+date: '2022-07-19'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+-------------------------------------------------------------
+
+
+## **Business Task Summary**
+
+
+##### -	Bellabeat is a high-tech manufacturer of women-focused health and fitness smart devices, and is seeking the expertise of a data analyst to provide insights that can influence the Bellabeat marketing strategy by investigating trends in how non-Bellabeat customers use smart devices. Their smart device portfolio currently consists of an app that analyzes data to provide health related insights on activity, sleep, stress, menstrual cycle, and mindfulness habits, along with three different technologies that provide data for the app.
+
+##### - The following aspects of the data analysis process will conclude with a complete summary of the smart device fitness data trend analysis and top high-level content recommendations based on insights that can influence Bellabeat's marketing strategy for thier app product.  
+  
+  
+#### **Key Stakeholders:**
+##### - **_Urska Srsen_** - Cofounder and Chief Creative Officer. Artist background. Knows data insights can help guide marketing strategy.
+##### - **_Sando Mur_** – Cofounder and Mathematician.
+##### - **_Bellabeat Marketing Analytics Team_**
+
+-------------------------------------------------------------  
+
+
+
+## **Analysis Prep and Data Processing**
+
+
+#### **To prepare for analysis, the data needs to first be identified, acquired, and stored.**
+
+- Srsen identified a public dataset in Kaggle titled “FitBit Fitness Tracker Data” to be used 
+  * The data is open source and in a long format 
+  * It contains detailed information on user steps, HR, activity level, sleep, and weight
+  * It groups activity by day, hour, and minute, but this analysis will focus on identifying trends by day 
+  * Is limited with only 33 individual user's activity over a 32 day period 6 years ago.  
+    * The analysis will proceed with the limited dataset, but could be more comprehensive by adding in additional datasets in the future
+
+
+##### *Data Source Summary*  
+
+DataBases |Source |File Type |Author |Year Updated
+----------|-------|----------|-------|------------
+Kaggle Website |www.kaggle.com |url |N/A |N/A
+FitBit_Fitness_Tracker_Data.zip | www.kaggle.com/datasets/arashnic/fitbit |zip |Mobius |2020
+dailyActivity_merged.csv |FitBit_Fitness_Tracker_Data.zip | csv |Mobius |2020
+sleepDay_merged.csv |FitBit_Fitness_Tracker_Data.zip |csv | Mobius |2020
+weightLogInfo_merged.csv |FitBit_Fitness_Tracker_Data.zip | csv |Mobius |2020
+
+
+#### **After obtaining data, it is then uploaded into RStudio, cleaned, and validated for integrity.**
+
+  * The summary below shows that there are multiple entry days with no activity and that we will be limited in use of weight records, but otherwise the data looks to be of good quality
+  * Entries with daily Calories=0 will be removed from the dataset
+  * Entries with total_steps=0 and sedentary_minutes=1440 will be removed from the dataset
+
+##### *Install Packages*  
+
+> * install.packages("tidyverse",repos = "http://cran.us.r-project.org")  
+* library(tidyverse)  
+* install.packages("janitor",repos = "http://cran.us.r-project.org")  
+* library(janitor)  
+  
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+install.packages("tidyverse",repos = "http://cran.us.r-project.org")
+library(tidyverse)
+install.packages("janitor",repos = "http://cran.us.r-project.org")
+library(janitor)
+```
+
+
+##### *Upload Datasets, Normalize Naming, Clean Formatting, and Combine into one Master Dataframe*
+
+> * <- read_csv()
+* clean_names(), rename(Date=c("activity_date", "sleep_day")) 
+* mutate(date=as.Date(Date, "%m/%d/%Y"))
+* mutate(day=format(date,format=%A))
+* unite(col='id_date', c("id, date"), sep="_")
+* full_join(by="id_date")
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+dailyActivity_merged_NEED.csv <- "C:/Users/sjmin/OneDrive/Documents/Data Analyst/Coursera_case_study/FitBit_Data_1/dailyActivity_merged_NEED.csv"
+sleepDay_merged_NEED.csv <- "C:/Users/sjmin/OneDrive/Documents/Data Analyst/Coursera_case_study/FitBit_Data_1/sleepDay_merged_NEED.csv"
+weightLogInfo_merged_NEED.csv <- "C:/Users/sjmin/OneDrive/Documents/Data Analyst/Coursera_case_study/FitBit_Data_1/weightLogInfo_merged_NEED.csv"
+activity_file <- read_csv(dailyActivity_merged_NEED.csv) %>% rename(Date = ActivityDate) %>% 
+  unite(col='id_date', c("Id", "Date"), sep="_",remove=FALSE) %>%  clean_names()
+sleep_activity <- read_csv(sleepDay_merged_NEED.csv) %>% rename(Date = SleepDay) %>% 
+  unite(col='id_date', c("Id", "Date"), sep="_",remove=FALSE) %>%  clean_names()
+weight_activity <- read_csv(weightLogInfo_merged_NEED.csv) %>% 
+  unite(col='id_date', c("Id", "Date"), sep="_",remove=FALSE) %>%  clean_names()
+sleep_and_activity <- full_join(activity_file, sleep_activity, by="id_date") %>% select(-"id.y", -"date.y")
+daily_activity <- full_join(sleep_and_activity, weight_activity, by="id_date") %>% select(-"id", -"date", -"id_date") %>% rename(id = "id.x", date = "date.x") %>% clean_names()%>% mutate(Date=as.Date(date, "%m/%d/%Y")) %>% mutate(day=format(Date, format="%A")) %>% select(-"date") %>% relocate(Date, .after=id)
+daily_activity$day <- factor(daily_activity$day, levels =c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+```
+
+
+##### *Summarize Data*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+d <- daily_activity %>%  select(-"tracker_distance", -"sedentary_active_distance", -"very_active_distance", -"moderately_active_distance", -"light_active_distance", -"log_id", -"day", -"weight_kg", -"fat", -"bmi", -"is_manual_report")
+summary(d)
+```
+
+
+##### *Identify Abnormalities, Check Data Integrity, Remove Invalid Entries*  
+
+  * The two resulting tables show the changes in the dataset before and after cleaning
+
+> * daily_activity[is.na(daily_activity)] <- 0
+* tibble(gather(usage_summary))
+* daily_activity <- daily_activity %>% filter(calories>0, total_steps>0 | sedentary_minutes<1440)
+* tibble(gather(usage_summary))
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+daily_activity[is.na(daily_activity)] <- 0
+user_summary <- daily_activity  %>% 
+  group_by(id) %>% 
+  summarize(total_days = sum(Date >= 1), start_date = min(Date), end_date = max(Date),  
+            zero_step_days = sum(total_steps == 0), 
+            zero_calories_days = sum(calories == 0),
+            all_sedentary_days = sum(sedentary_minutes == 1440),
+            total_active_days = total_days - (zero_step_days+zero_calories_days+
+                                                all_sedentary_days), 
+            average_steps = mean(total_steps), very_to_fair_active_min = 
+              mean((very_active_minutes+fairly_active_minutes)),
+            percent_days_active = (1 - zero_step_days / total_days)*100, 
+            days_with_sleep = sum(total_sleep_records >= 1),
+            percent_days_slept = (days_with_sleep/total_days)*100,
+            days_weighed = sum(weight_kg >= 1), 
+            percent_days_weighed = (days_weighed / total_days)*100,
+            step_count = sum(total_steps), tot_very_to_fair_active_min = 
+              sum((very_active_minutes+fairly_active_minutes)), 
+            total_miles = sum(total_distance))
+usage_summary <- user_summary %>% 
+  summarize(number_of_users = sum(id>0), min_date = min(start_date), max_date = max(end_date),
+            min_active_days = min(total_days), max_active_days = max(total_days), 
+            total_days = sum(total_days), zero_step_days = sum(zero_step_days),
+            zero_calorie_days = sum(zero_calories_days), 
+            complete_sedentary_days = sum(all_sedentary_days),
+            total_sleep_days = sum(days_with_sleep), total_weight_days = sum(days_weighed)) %>% 
+  unite(date_range, c("min_date", "max_date"), sep = " - ") %>% 
+  unite(days_used_range, c("min_active_days", "max_active_days"),sep = " - ")
+tibble(gather(usage_summary))
+daily_activity <- daily_activity %>% filter(calories>0, total_steps>0 | sedentary_minutes<1440)
+daily_activity[is.na(daily_activity)] <- 0
+user_summary <- daily_activity  %>% 
+  group_by(id) %>% 
+  summarize(total_days = sum(Date >= 1), start_date = min(Date), end_date = max(Date),  
+            zero_step_days = sum(total_steps == 0), 
+            zero_calories_days = sum(calories == 0),
+            all_sedentary_days = sum(sedentary_minutes == 1440),
+            total_active_days = total_days - (zero_step_days+zero_calories_days+
+                                                all_sedentary_days), 
+            average_steps = mean(total_steps), very_to_fair_active_min = 
+              mean((very_active_minutes+fairly_active_minutes)),
+            percent_days_active = (1 - zero_step_days / total_days)*100, 
+            days_with_sleep = sum(total_sleep_records >= 1),
+            percent_days_slept = (days_with_sleep/total_days)*100,
+            days_weighed = sum(weight_kg >= 1), 
+            percent_days_weighed = (days_weighed / total_days)*100,
+            step_count = sum(total_steps), tot_very_to_fair_active_min = 
+              sum((very_active_minutes+fairly_active_minutes)), 
+            total_miles = sum(total_distance))
+usage_summary <- user_summary %>% 
+  summarize(number_of_users = sum(id>0), min_date = min(start_date), max_date = max(end_date),
+            min_active_days = min(total_days), max_active_days = max(total_days), 
+            total_days = sum(total_days), zero_step_days = sum(zero_step_days),
+            zero_calorie_days = sum(zero_calories_days), 
+            complete_sedentary_days = sum(all_sedentary_days),
+            total_sleep_days = sum(days_with_sleep), total_weight_days = sum(days_weighed)) %>% 
+  unite(date_range, c("min_date", "max_date"), sep = " - ") %>% 
+  unite(days_used_range, c("min_active_days", "max_active_days"),sep = " - ")
+tibble(gather(usage_summary))
+```
+
+
+
+
+
+-------------------------------------------------------------  
+
+
+## **Analyze and Share**
+
+#### **With clean data, we can now begin investing trends**
+
+##### *User Summary* 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+tibble(user_summary) %>% select(-"total_days", -"start_date", -"end_date", -"zero_step_days", -"zero_calories_days", -"all_sedentary_days", -"percent_days_active",-"percent_days_slept", -"percent_days_weighed", -"step_count", -"tot_very_to_fair_active_min", -"very_to_fair_active_min")
+
+```
+
+
+##### *Daily Step Analysis* 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(scales)
+blank_theme <- theme_minimal()+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  plot.title=element_text(size=14, face="bold")
+  )
+step_intergity <- daily_activity %>% mutate(step_level = if_else(total_steps > 10000, "more_than_10k_steps",
+                    if_else(total_steps >= 5000, "from_5k_to_10k_steps",
+                            if_else(total_steps >= 1, "from_1_to_5k_steps", "zero_step_days")))) 
+
+short_step <- step_intergity %>% group_by(step_level) %>% 
+  summarize(days=sum(id>0))
+short_step$step_level <- factor(short_step$step_level, levels =c("zero_step_days", "from_1_to_5k_steps", "from_5k_to_10k_steps", "more_than_10k_steps"))
+ggplot(short_step, aes(x="", y=days, fill=step_level))+
+  geom_bar(width=1, stat="identity") +
+  coord_polar("y", start=0) + blank_theme +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.text.x = element_blank()) +
+  geom_text(aes(y = c(740, 500, 160, 0), 
+            label = percent(days/871)), size=4) +
+  labs(title="Distrubtion of Daily Step Count", 
+       subtitle= "Out of 871 daily entries, the step count averages = 8,285") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+date_step <- step_intergity %>% filter(Date != "2016-05-12") %>% group_by(Date) %>% summarize (total_users=sum(id>0), total_step=sum(total_steps), avg_user_daily_steps=(total_step/total_users))
+ggplot(date_step, aes(x=Date, y=avg_user_daily_steps))+
+  geom_bar(stat="identity", fill="chocolate3")+
+  labs(title="Average Daily Step Count") +
+  labs(subtitle = "Daily step count trended up for the first two week, but then leveled out") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method="loess", formula=y~x, color="black")+
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+day_step <- step_intergity %>% group_by(day) %>% summarize (total_users=sum(id>0), total_mile=sum(total_distance)+sum(logged_activities_distance), avg_miles=(total_mile/total_users))
+ggplot(day_step, aes(x=day, y=avg_miles, fill=day))+
+  geom_bar(stat="identity", fill="darkolivegreen4")+
+  labs(title="Average Miles by Day") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="The least distance is walked on Fridays and Sundays") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+
+d_step <- step_intergity %>% mutate(over_10k = if_else(total_steps>10000, 1, 0)) %>%
+  group_by(day) %>% summarize (total_users=sum(id>0), total_step_10000=sum(over_10k), percent_over_10k = (total_step_10000/total_users)*100)
+ggplot(d_step, aes(x=day, y=percent_over_10k, fill=day))+
+  geom_bar(stat="identity", fill="darkslateblue")+
+  labs(title="Percent of Users With 10,000+ Steps by Day") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Tuesday is the most likely day to walk 10,000+ steps") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+  
+```
+
+
+##### *Activity Analysis* 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+act_min <- daily_activity  %>% 
+  summarize(high_active_min=sum(very_active_minutes), fair_active_min=sum(fairly_active_minutes), low_active_min=sum(lightly_active_minutes)) %>% 
+  gather(key="activity_type", value="min")
+act_min$activity_type <- factor(act_min$activity_type, levels =c("low_active_min", "fair_active_min", "high_active_min"))
+ggplot(act_min, aes(x="", y= min, fill= activity_type))+
+  geom_bar(width=1, stat="identity") +
+  coord_polar("y", start=0) + blank_theme +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.text.x = element_blank()) +
+  geom_text(aes(y = c(10000, 28000, 150000), 
+            label = percent(min/sum(min))), size=4) +
+  labs(title="Distrubtion of Active Minutes") + 
+  labs(subtitle= "The vast majority of active minutes are low intensity") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+high_day <- daily_activity %>% filter(Date < "2016-05-12") %>% 
+  mutate(act= if_else((very_active_minutes)>0, 1, 0))%>% 
+  group_by(day) %>% 
+  summarize(act_day=sum(act), na_days=sum(act==0), users=sum(id>0))
+ggplot(high_day, aes(x=day, y=(act_day/users)*100))+
+  geom_bar(stat="identity", fill="chocolate3") +
+  labs(title="Percent Users With High Intensity Activity by Day") + 
+  labs(subtitle= "The chance of high intensity activities decreases throughout the week") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+act_min_date <- daily_activity %>% filter(Date < "2016-05-12") %>% group_by(day) %>% 
+  summarize(high_min=sum(very_active_minutes), fair_min=sum(fairly_active_minutes), 
+            low_min=sum(lightly_active_minutes), users=sum(id>0))
+ggplot(act_min_date, aes(x= day, y= (high_min/users)))+
+  geom_bar(stat="identity", fill="darkolivegreen4") +
+  labs(title="High Intensity Active Minutes per User by Day") + 
+  labs(subtitle= "The amount of high intensity activity minutes per user per day trends down throughout the week") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+na_day <- daily_activity %>% filter(Date < "2016-05-12") %>% 
+  mutate(act= if_else((very_active_minutes + fairly_active_minutes)>0, 1, 0)) %>% 
+  group_by(day) %>% 
+  summarize(act_day=sum(act), na_days=sum(act==0), users=sum(id>0))
+ggplot(na_day, aes(x=day, y=((na_days/users)*100)))+
+  geom_bar(stat="identity", fill="darkslateblue") +
+  labs(title="Percent Users With No High or Fair Intensity Activity Minutes") + 
+  labs(subtitle= "There is a lower chance of high intensity activity Friday, Saturday, and Sunday") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+  
+```
+
+
+##### *Calorie Burn Analysis* 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+calories_intergity <- daily_activity %>% mutate(calorie_level = 
+      if_else(calories >= 3000, "over_3k_calories",
+                              if_else(calories>= 2500, "from_2.5k_to_3k_calories",
+                                      if_else(calories >= 2000, "from_2k_to_2.5k_calories" ,"from_1_to_2k_calories"))))
+
+short_cal <- calories_intergity %>% group_by(calorie_level) %>% 
+  summarize(days=sum(id>0))
+short_cal$calorie_level <- factor(short_cal$calorie_level, levels =c("from_1_to_2k_calories", "from_2k_to_2.5k_calories", "from_2.5k_to_3k_calories", "over_3k_calories"))
+ggplot(short_cal, aes(x="", y=days, fill=calorie_level))+
+  geom_bar(width=1, stat="identity") +
+  coord_polar("y", start=0) + blank_theme +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.text.x = element_blank()) +
+  geom_text(aes(y = c(730, 470, 270, 90), 
+            label = percent(days/871)), size=4) +
+  labs(title="Distrubtion of Daily Calorie Burn") + 
+  labs(subtitle= "Out of 871 daily entries, the calorie burn average = 2,357") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+day_cal <- calories_intergity %>% group_by(day) %>% summarize (total_users=sum(id>0), total_cal=sum(calories), avg_cal=(total_cal/total_users))
+ggplot(day_cal, aes(x=day, y=avg_cal, fill=day))+
+  geom_bar(stat="identity", fill="darkolivegreen4")+
+  labs(title="Average Calorie Burn by Day") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Daily calories burned are fairly consistent") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+d_cal <- calories_intergity %>% mutate(over_2.5k = if_else(calories>2500, 1, 0)) %>%
+  group_by(day) %>% summarize (total_users=sum(id>0), total_2.5k =sum(over_2.5k), percent_over_2.5k = (total_2.5k/total_users)*100)
+ggplot(d_cal, aes(x=day, y=percent_over_2.5k, fill=day))+
+  geom_bar(stat="identity", fill="darkslateblue")+
+  labs(title="Percent of Users With 2,500+ Calories Burned by Day") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Tuesdays have the highest percent of users with 2,500+ calories burned") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+##### *Sleep Analysis* 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+daily_activity[is.na(daily_activity)] <- 0
+sleep_intergity <- daily_activity %>% filter(total_minutes_asleep>0) %>% mutate(sleep_hours = 
+      if_else((total_minutes_asleep)/60 > 9, "more_than_9_hours", 
+                      if_else((total_minutes_asleep)/60 > 7, "from_7_to_9_hours",
+                              if_else((total_minutes_asleep)/60 > 5, "from_5_to_7_hours", "from_1_to_5_hours"))))
+short_sleep <- sleep_intergity %>% group_by(sleep_hours) %>% 
+  summarize(days=sum(id>0))
+short_sleep$sleep_hours <- factor(short_sleep$sleep_hours, levels =c("from_1_to_5_hours", "from_5_to_7_hours", "from_7_to_9_hours", "more_than_9_hours"))
+ggplot(short_sleep, aes(x="", y=days, fill=sleep_hours))+
+  geom_bar(width=1, stat="identity") +
+  coord_polar("y", start=0) + blank_theme +
+  scale_fill_brewer(palette="Dark2") +
+  theme(axis.text.x = element_blank()) +
+  geom_text(aes(y = c(385, 280, 130, 25), 
+            label = percent(days/413)), size=4) +
+  labs(title="Distrubtion of Average Sleep Length") + 
+  labs(subtitle= "Out of 413 entries, the average sleep lasts 7 hours") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+date_sleep <- sleep_intergity %>% filter(Date != "2016-05-12") %>% group_by(Date) %>% summarize(total_users=sum(id>0), total_sleep=(sum(total_minutes_asleep)/60), avg_user_daily_sleep=(total_sleep/total_users))
+ggplot(date_sleep, aes(x=Date, y=avg_user_daily_sleep))+
+  geom_bar(stat="identity", fill="chocolate3")+
+  labs(title="Average Daily Sleep Length") +
+  labs(subtitle = "Daily sleep length average varies between 6-8 hours") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method="loess", formula=y~x, color="black")+
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+d_sleep <- sleep_intergity %>% mutate(over_8h = if_else(total_minutes_asleep>480, 1, 0)) %>%
+  group_by(day) %>% summarize (total_users=sum(id>0), total_8h =sum(over_8h), percent_over_8h = (total_8h/total_users)*100)
+ggplot(d_sleep, aes(x=day, y=percent_over_8h, fill=day))+
+  geom_bar(stat="identity", fill="darkslateblue")+
+  labs(title="Percent of Users With 8+ Hours of Sleep by Day") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Weekend entries had the highest chance of recording more than 8 hours of sleep") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+
+```
+
+
+
+##### *High to Moderate Activity vs Calories*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+a <- daily_activity 
+ggplot(a, aes(x= (very_active_minutes+fairly_active_minutes), y= calories)) +
+  geom_point(color="darkolivegreen4") +
+  geom_smooth(method="lm", formula="y~x", color="black")+
+  xlim(0,300)+
+  labs(title="High to Moderate Level Activity vs Calories") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Performing at a high to moderate level burns more calories than low level activites") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+##### *Low Activity vs Calories*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+a <- daily_activity 
+ggplot(a, aes(x= (lightly_active_minutes), y= calories)) +
+  geom_point(color="chocolate3") +
+  geom_smooth(method="lm", formula="y~x", color="black")+
+  xlim(0,300)+
+  labs(title="Low Level Activity vs Calories") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Low level activities burn calories, but at a lower rate") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+##### *High to Moderate Activity vs Steps*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(daily_activity, aes(x= (very_active_minutes+fairly_active_minutes), y=total_steps)) +
+  geom_point(color="darkolivegreen4")+
+  geom_smooth(method="lm", formula="y~x", color="black")+
+  xlim(0,300)+
+  labs(title="High to Moderate Level Activity vs Steps") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="High to moderate activity increases steps faster than low level activity") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+##### *Low Activity vs Steps*
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(daily_activity, aes(x=lightly_active_minutes, y=total_steps)) +
+  geom_point(color="chocolate3")+
+  geom_smooth(method="lm", formula="y~x", color="black") +
+  xlim(0,300)+
+  labs(title="Low Level Activity vs Steps") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(subtitle="Low level activites increase steps slowly") +
+  theme(plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+
+
+----------------------------------------------------
+
+## **Trend Summary**  
+
+
+#### **Trends identified in fitness data**
+
+- Individuals in this dataset walked a lot! They averaged 8,285 steps/day, and only 26.5% of the daily entries have less that 5,000 steps 
+- Most the activity tracked was at a light intensity level. Only 15.3% of all active minutes were spent at a high or fair activity level, but these activities increase calories and steps faster than low intensity activities.
+- Only 46% of sleep records averaged 7-9 hours/night, and users had the highest chance of sleeping for 8+ hours on Saturday and Sunday.
+- Monday, and Tuesday were the most active days. They had the highest percent of users walking 10,000+ steps (37% and 43% respectively), the highest percent of users participating in high intensity activities, and the longest lasting high intensity activities.
+- Saturdays have a high percent of users walking 10,000+ steps, but a low chance of high intensity activities.
+- Fridays and Sundays have the highest percent of users with no high or moderate intensity activities (42%), and the lowest percent of users to walk 10,000+ steps (27% and 30% respectfully).
+
+
+#### **How these trends can relate to the Bellabeat app and its users**
+
+- **The dataset in this analysis overlaps with the Bellabeat app in terms of tracking steps, activity level, and sleep, but it does not contain information about stress level, menstrual cycle, or mindfulness habits.**
+  * Step, activity level, sleep, and weekly trends from this dataset are expected to similarly resemble Bellabeat customer trends 
+  * These trends relate to the app's main purpose of providing users with health data and can be used to create benchmarks, further understand the relationship between different metrics, and receive a glimpse into the weekly routine of the average user 
+    - Goals/benchmarks can be developed from dataset averages
+    - Fitness tips and mindfulness habits can be expanded on from relationships between metrics in the dataset
+    - Marketing strategies can be influenced by knowing the average weekly routine, and knowing when and where to advertise  
+
+    
+- *This dataset is not very recent, is not limited to females, and does not have a very extensive amount of records. It would be beneficial to collect Bellabeat user data and complete an expanded analysis with the correct user market and inclusion of stress and menstrual cycle information.*  
+  
+  
+----------------------------------------------------
+
+## **Marketing Strategy Action Items**  
+
+
+##### **1)  Market the app as "Get more out of your fitness data. The Bellabeat app goes further that displaying tracked data, it's interactive and customizable platform helps you achieve your goals in a more personalized and effective way.**    
+
+- There are countless fitness data monitoring devices on the market, but Bellabeat has the opportunity to differentiate by marketing the app as a more personal way of understanding habits through customization of the way the virtual coach helps you reach your goals, the app's dashboard, and achievement levels/checkpoints for each individual user's goals  
+
+
+##### **2)  Make the mindfulness habits more interactive, create a new stress level metric, implement database trends as benchmarks, and rebrand it as a "Virtual Health and Fitness Coach".**  
+
+- The app is designed to provides users with health data, but with the creation of the virtual health and fitness coach, and customization based off of user goals, the app can do this in different ways 
+  * Customized Goal Options
+    - Goal 1: Use virtual coach to increase motivation 
+      * Modify achievement levels and create incentive program to reach average levels determined in the dataset
+      * Create competition by simulating the dataset's averages and allowing the user to compare their daily activity to it and see who "won" each day
+      * Know the average weekly routine of users in the dataset and suggest which activity the user is most likely to do each day
+      * Update dashboard to focus on goals and competition 
+    - Goal 2: Use virtual coach to increase calories burned
+      * Provide insights to user showing the strong correlations between increased high/moderate level activities and increased calories burned
+      * Customize dashboard to focus on calories
+    - Goal 3: Use virtual coach to track data
+      * Daily benchmarking and interactive session with virtual coach 
+      * Simplify dashboard
+  * Addition of Mood Level 
+    - The virtual coach will ask users each day for a mood level and see if there are correlations between mood and other fitness metrics being tracked
+      * If mood level correlates with other metrics, those insights can be used to expand the mindfulness habits and suggest ways to improve mood  
+    
+
+##### **3)  Market the Bellabeat brand to the correct audience using trends from the dataset.**   
+
+- The analysis suggests that most users are doing high intensity workouts Monday through Thursday, relaxing on Saturday and Sunday, walking a lot on Saturdays but not at more than a light level, and getting the best sleep on the weekends
+  * Advertise at the gym Monday-Thursday when there are more intense workouts occurring
+  * Advertise in high foot traffic areas such as parks or downtown shopping areas on Saturdays when there is more low level activity
+  * Advertise through podcasts and social media on Friday and Sunday when there is more sedentary time
+  
+
+
+ 
+
